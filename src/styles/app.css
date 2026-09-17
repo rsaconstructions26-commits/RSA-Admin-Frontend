@@ -1,0 +1,1817 @@
+:root {
+  --brand-red: #0056cc;
+  --brand-dark: #1f2933;
+  --bg: #f4f5f7;
+  --panel-bg: #ffffff;
+  --panel-bg-alt: #f8f9fb;
+  --border: #d9dde3;
+  --text: #1f2933;
+  --text-muted: #6b7280;
+  --green: #1b8a4c;
+  --amber: #b8860b;
+  --danger: #c1272d;
+  --sidebar-bg: #1f2933;
+  --sidebar-text: #cbd2d9;
+  --overlay: rgba(0, 0, 0, 0.4);
+  font-family: 'Inter', 'Noto Sans Tamil', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+[data-theme='dark'] {
+  --bg: #14181d;
+  --panel-bg: #1c2128;
+  --panel-bg-alt: #232a33;
+  --border: #333c47;
+  --text: #e6e9ee;
+  --text-muted: #94a0b1;
+  --sidebar-bg: #0f1317;
+  --sidebar-text: #b7c0cc;
+  --overlay: rgba(0, 0, 0, 0.6);
+}
+
+* { box-sizing: border-box; }
+
+/* Browsers don't apply the page font to form controls by default (they use a
+   system UI font instead), which was silently dropping Tamil glyphs in every
+   input/select/button/textarea - even though the same text renders fine in
+   plain text and the print view. This makes all form controls use the same
+   Tamil-capable font stack as the rest of the app. */
+input, select, textarea, button {
+  font-family: inherit;
+}
+
+/* Safety net for phones: nothing on any screen should ever be able to push
+   the whole page sideways (a wide table, a long unbroken string, ...) - that
+   is what made the sidebar/header/search box all appear shifted and clipped
+   together in the mobile screenshots, not just the table itself. The real
+   fix is not letting a table force that width in the first place (see
+   .table-scroll below), but this keeps any future regression contained to a
+   scrollbar on the offending element instead of the entire page. */
+html { overflow-x: hidden; }
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--bg);
+  color: var(--text);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.app-shell { min-height: 100vh; }
+.app-body { display: flex; min-height: 100vh; }
+
+/* ---- Sidebar (desktop: static left column; mobile: slide-in drawer) ---- */
+.app-sidebar {
+  width: 270px;
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 16px;
+  gap: 20px;
+  transition: width 0.16s ease;
+}
+.sidebar-top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.brand {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  padding: 0 6px;
+  min-width: 0;
+  flex: 1 1 auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.brand-title { font-weight: 700; font-size: 15px; color: var(--brand-red); letter-spacing: 0.2px; white-space: nowrap; }
+.brand-sub { font-size: 11px; color: #9aa5b3; margin-top: 2px; }
+
+.collapse-toggle-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  margin-left: 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sidebar-text);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.collapse-toggle-btn:hover { background: rgba(255, 255, 255, 0.14); color: white; }
+.collapse-toggle-btn:focus-visible { outline: 2px solid var(--brand-red); outline-offset: 2px; }
+
+.tab-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.tab-link {
+  color: var(--sidebar-text);
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.tab-link:hover { background: rgba(255, 255, 255, 0.08); color: white; }
+.tab-link.active { background: var(--brand-red); color: white; }
+.tab-link:focus-visible { outline: 2px solid var(--brand-red); outline-offset: -2px; }
+
+.sidebar-footer { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 14px; }
+.sidebar-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.theme-toggle { flex: 1; text-align: center; }
+.lang-select {
+  padding: 7px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sidebar-text, white);
+  font-size: 12px;
+}
+/* The closed <select> can safely inherit the sidebar's dark styling above, but
+   the pop-open OPTIONS LIST is drawn by the OS/browser with its own default
+   background (almost always white), and some browsers let it inherit our
+   `color: white` from the trigger - producing invisible white-on-white rows.
+   Force explicit, always-readable colors on the options themselves so this
+   holds regardless of which app theme is active. */
+.lang-select option { color: #1f2933; background: #ffffff; }
+[data-theme='dark'] .lang-select option { color: #e6e9ee; background: #232a33; }
+.user-menu { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--sidebar-text); }
+
+/* ---- Collapsed sidebar (desktop only - toggle button + Ctrl/Cmd+B) ---- */
+.app-sidebar.collapsed { width: 68px; padding-left: 10px; padding-right: 10px; }
+.app-sidebar.collapsed .brand { padding: 0; align-items: center; }
+.app-sidebar.collapsed .brand-title { font-size: 13px; }
+.app-sidebar.collapsed .sidebar-top-row { flex-direction: column; align-items: center; gap: 10px; }
+.app-sidebar.collapsed .tab-link { text-align: center; padding: 10px 4px; letter-spacing: 0.5px; }
+.app-sidebar.collapsed .sidebar-controls { flex-direction: column; }
+.app-sidebar.collapsed .theme-toggle { font-size: 15px; padding: 6px; }
+.app-sidebar.collapsed .user-menu { justify-content: center; }
+
+.app-content { flex: 1; padding: 24px 32px; max-width: 1280px; margin: 0 auto; width: 100%; min-width: 0; }
+
+/* ===========================================================================
+   MOBILE APP SHELL (< 768px) - purpose-built phone layout: sticky header,
+   fixed bottom tab bar, and a slide-up "More" sheet. This is a genuinely
+   different UI from the desktop sidebar (not the desktop UI scaled down),
+   rendered by MobileShell in Layout.jsx for the exact same routes/data as
+   the desktop version. Uses 100dvh (falls back to 100vh) and safe-area-inset
+   so it sits correctly under the iPhone notch/Dynamic Island, above the
+   Android/iOS home-indicator bar, and doesn't get covered by a mobile
+   browser's own address bar chrome.
+   =========================================================================== */
+.mobile-shell { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+
+/* Every page renders its own <h1 class="page-title"> + <BackButton/> for the
+   desktop header - on mobile that would double up with MobileShell's own
+   sticky header (which already shows the page title and a back chevron for
+   this exact route), so both are hidden app-wide below the phone breakpoint.
+   Scoped to the class, not the whole .page-header, so any other buttons a
+   page keeps in that row (e.g. "+ New") stay visible and functional. */
+@media (max-width: 767px) {
+  .page-title, .back-btn { display: none; }
+}
+
+.m-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 6px;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: var(--sidebar-bg);
+  color: white;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(0);
+  transition: transform 0.25s ease;
+}
+/* Slides the sticky header off the top of the screen while scrolling down a
+   long page, and back into place the instant the user scrolls up - toggled
+   from useChromeVisible() in Layout.jsx. Kept to transform only (no top/
+   position changes) so it stays cheap to animate every scroll frame. */
+.m-header-hidden { transform: translateY(-100%); }
+.m-header-title {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+}
+.m-header-icon-btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.m-header-icon-btn:active { background: rgba(255, 255, 255, 0.12); }
+.m-header-icon-spacer { flex-shrink: 0; width: 44px; height: 44px; }
+
+/* Content sits between the sticky header and the fixed bottom nav; extra
+   bottom padding keeps the last card/button from being hidden behind the
+   nav bar (whose own height + safe-area is accounted for via the variable
+   set on .m-bottom-nav's height further down). */
+/* Extra bottom padding clears both the fixed bottom nav (~64px + safe area)
+   and the floating chat FAB that sits just above it - without this, the last
+   card/button on a long page ends up partly hidden behind one or the other. */
+.m-content {
+  flex: 1;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 14px 14px calc(96px + env(safe-area-inset-bottom, 0px));
+  min-width: 0;
+}
+
+.m-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  background: var(--panel-bg);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+  transform: translateY(0);
+  transition: transform 0.25s ease;
+}
+.m-bottom-nav::-webkit-scrollbar { display: none; }
+/* Slides the bottom nav down out of view on scroll-down, mirroring
+   .m-header-hidden above - both are driven by the same chromeVisible flag so
+   they move together. */
+.m-bottom-nav-hidden { transform: translateY(100%); }
+.m-nav-item {
+  flex: 0 0 auto;
+  min-width: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 10px 6px;
+  min-height: 56px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.m-nav-item svg { width: 22px; height: 22px; }
+.m-nav-item.active { color: var(--brand-red); }
+
+/* "More" bottom sheet - remaining nav tabs + theme/language/logout, in place
+   of squeezing the whole desktop sidebar's contents onto a phone screen. */
+.m-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: var(--overlay);
+  display: flex;
+  align-items: flex-end;
+}
+.m-sheet {
+  width: 100%;
+  max-height: 80vh;
+  max-height: 80dvh;
+  overflow-y: auto;
+  background: var(--panel-bg);
+  color: var(--text);
+  border-radius: 16px 16px 0 0;
+  padding: 10px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+  animation: sheetSlideUp 0.22s ease-out both;
+}
+@keyframes sheetSlideUp {
+  from { transform: translateY(24px); opacity: 0.4; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.m-sheet-handle { width: 40px; height: 4px; border-radius: 2px; background: var(--border); margin: 4px auto 12px; }
+.m-sheet-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.m-sheet-user { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+.m-sheet-user-icon { width: 30px; height: 30px; color: var(--brand-red); flex-shrink: 0; }
+.m-sheet-links { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 6px 0; margin-bottom: 14px; }
+.m-sheet-link {
+  padding: 13px 6px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14.5px;
+  font-weight: 600;
+  border-radius: 8px;
+}
+.m-sheet-link.active { color: var(--brand-red); background: rgba(0, 86, 204, 0.08); }
+.m-sheet-controls { display: flex; gap: 10px; margin-bottom: 14px; }
+.m-sheet-controls .btn { flex: 1; min-height: 44px; justify-content: center; }
+.m-sheet-controls .lang-select { flex: 1; background: var(--panel-bg-alt); color: var(--text); border: 1px solid var(--border); }
+.m-sheet-logout { width: 100%; min-height: 46px; justify-content: center; }
+
+/* Generic mobile "card list" - the phone-native replacement for a data-table
+   row when a page opts into it via isMobile (Dashboard's recent transactions
+   and low-stock alerts, the Billing list, ...). Deliberately its own pattern
+   rather than .stack-on-mobile (which turns a <table> into a table-shaped
+   stack of rows) - these are real touch-sized cards with their own tap
+   target, matching how a phone app actually presents a list. */
+.m-card-list { display: flex; flex-direction: column; gap: 10px; }
+.m-card {
+  display: block;
+  background: var(--panel-bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: var(--text);
+  text-decoration: none;
+}
+.m-card-link { cursor: pointer; }
+.m-card-link:active { background: var(--panel-bg); }
+.m-card-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.m-card-row + .m-card-row { margin-top: 6px; }
+.m-card-title { font-weight: 700; font-size: 14.5px; }
+.m-card-row-sub { font-size: 12.5px; color: var(--text-muted); }
+.m-card-amount { font-size: 16px; font-weight: 700; color: var(--brand-red); margin-top: 4px; }
+
+.page-title { font-size: 22px; margin: 0 0 16px; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+.page-loading { padding: 40px; text-align: center; color: var(--text-muted); }
+
+.panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.panel h2 { font-size: 15px; margin: 0 0 12px; font-weight: 700; letter-spacing: 0.2px; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+}
+.stat-card:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08); transform: translateY(-1px); }
+.stat-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: var(--panel-bg-alt);
+  color: var(--brand-red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stat-body { min-width: 0; flex: 1; overflow-wrap: break-word; }
+.stat-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.stat-value { font-size: clamp(16px, 2.2vw, 22px); font-weight: 700; overflow-wrap: break-word; min-width: 0; }
+.stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.stat-brand .stat-value { color: var(--brand-red); }
+.stat-brand .stat-icon { background: rgba(0, 86, 204, 0.1); }
+.stat-warn .stat-value { color: var(--amber); }
+.stat-warn .stat-icon { background: rgba(184, 134, 11, 0.12); color: var(--amber); }
+.stat-danger .stat-value { color: var(--danger); }
+.stat-danger .stat-icon { background: rgba(193, 39, 45, 0.1); color: var(--danger); }
+.stat-ok .stat-value { color: var(--green); }
+.stat-ok .stat-icon { background: rgba(27, 138, 76, 0.1); color: var(--green); }
+
+/* ---- Animated dashboard entrance (FR "advance dashboard in animating way")
+   Cards fade + rise in on load, staggered one after another so the eye is
+   drawn down the grid rather than everything popping in at once; the icon
+   badge gets a soft pulse ring and a slightly bouncier hover lift so the
+   figures read as "alive" rather than static text in boxes. Kept to
+   transform/opacity only (no layout-affecting properties animated), and
+   gated behind prefers-reduced-motion for accessibility. ---- */
+@keyframes statCardIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes statIconPulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 86, 204, 0.28); }
+  70% { box-shadow: 0 0 0 8px rgba(0, 86, 204, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 86, 204, 0); }
+}
+.stat-card {
+  animation: statCardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stat-grid .stat-card:nth-child(1) { animation-delay: 0.02s; }
+.stat-grid .stat-card:nth-child(2) { animation-delay: 0.08s; }
+.stat-grid .stat-card:nth-child(3) { animation-delay: 0.14s; }
+.stat-grid .stat-card:nth-child(4) { animation-delay: 0.2s; }
+.stat-grid .stat-card:nth-child(5) { animation-delay: 0.26s; }
+.stat-grid .stat-card:nth-child(6) { animation-delay: 0.32s; }
+.stat-grid .stat-card:nth-child(7) { animation-delay: 0.38s; }
+.stat-card:hover { box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1); transform: translateY(-3px); }
+.stat-icon { animation: statIconPulse 2.4s ease-out 0.6s 2; transition: transform 0.2s ease; }
+.stat-card:hover .stat-icon { transform: scale(1.08); }
+.stat-value { transition: color 0.2s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .stat-card, .stat-icon { animation: none; }
+}
+
+/* ---- Dashboard charts (dependency-free inline SVG - no chart library) ---- */
+@keyframes panelFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.chart-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px; align-items: stretch; }
+.chart-panel-wide, .chart-panel-narrow { display: flex; flex-direction: column; animation: panelFadeIn 0.5s ease-out 0.3s both; }
+.chart-svg { width: 100%; height: auto; }
+.chart-bar {
+  fill: var(--brand-red);
+  transition: fill 0.15s ease;
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: barGrow 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.35s both;
+}
+.chart-bar:hover { fill: #004bb3; }
+@keyframes barGrow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.donut-chart-wrap circle { animation: panelFadeIn 0.6s ease-out 0.4s both; }
+@media (prefers-reduced-motion: reduce) {
+  .chart-bar, .donut-chart-wrap circle { animation: none; }
+}
+.chart-axis-label { font-size: 9px; fill: var(--text-muted); }
+.donut-chart-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; justify-content: center; }
+.donut-center-value { font-size: 15px; font-weight: 700; fill: var(--text); }
+.donut-center-label { font-size: 10px; fill: var(--text-muted); }
+.donut-legend { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--text); }
+.donut-legend-row { display: flex; align-items: center; gap: 8px; }
+.donut-legend-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+@media (max-width: 860px) {
+  .chart-grid { grid-template-columns: 1fr; }
+}
+
+/* Item 3 (2026-09-15): overflow-x: auto used to live on .panel itself so a
+   wide table wouldn't blow out the panel's width - but the CSS spec forces
+   an element's OTHER overflow axis to also become a scroll/clip container
+   whenever one axis is non-visible, so that single rule silently clipped
+   anything that opened past the panel's edge too, including this calendar
+   popover, cutting it off mid-drop instead of letting it open fully. Moving
+   the horizontal scroll onto the table itself (browsers scroll a table via
+   its own wrapper box) keeps wide tables scrollable without turning every
+   panel into a clipping box for its popovers. */
+/* The table itself no longer carries overflow-x: auto - on a table element
+   that rule never actually produced a scrollbar (the table's own box just
+   grows to min-width and pokes out of its parent .panel instead, which is
+   what cut off the Site/Client and Total Wages columns on phones - see
+   screenshots). .table-scroll below is the real horizontal-scroll container,
+   wrapped around each read-only table (see components); the two tables with
+   inline date/dropdown popovers inside their cells (Delivery Note item rows,
+   the Superadmin column editor) are left unwrapped and rely on
+   .stack-on-mobile instead, so their popovers are never vertically clipped. */
+.table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 480px; }
+.data-table th, .data-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+.data-table thead th { background: var(--panel-bg-alt); font-weight: 600; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+.data-table tfoot td { font-weight: 700; }
+.empty-row { text-align: center; color: var(--text-muted); padding: 24px; }
+.row-low-stock { background: rgba(193, 39, 45, 0.08); }
+.txn-in { color: var(--green); font-weight: 600; }
+.txn-out { color: var(--danger); font-weight: 600; }
+
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.amount-cell { text-align: right; font-variant-numeric: tabular-nums; }
+/* Give the live-calculated Amount cell in the items table the same boxed
+   look as the editable qty/rate/date inputs beside it, even though it's a
+   read-only computed value (quantity x rate, or per-day rate x qty x days),
+   not an input - see computeItemAmount() in utils/itemAmount.js. */
+.items-table .amount-cell:not(.total-amount) {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--panel-bg-alt);
+  vertical-align: middle;
+}
+.items-table .amount-cell { padding-left: 8px; padding-right: 8px; }
+.total-label { text-align: right; }
+.total-amount { color: var(--brand-red); font-size: 15px; }
+.danger-text { color: var(--danger); font-weight: 600; }
+
+.badge { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; }
+.badge-paid { background: rgba(27, 138, 76, 0.15); color: var(--green); }
+.badge-pending { background: rgba(193, 39, 45, 0.12); color: var(--danger); }
+.badge-btn { background: none; border: none; cursor: pointer; padding: 0; }
+
+.btn { border: none; border-radius: 7px; padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; transition: background-color 0.15s ease, filter 0.15s ease, transform 0.1s ease; }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--brand-red); color: white; box-shadow: 0 2px 6px rgba(0, 86, 204, 0.25); }
+.btn-primary:hover { background: #004bb3; }
+.btn-ghost { background: var(--panel-bg-alt); color: var(--text); }
+.btn-ghost:hover { filter: brightness(0.95); }
+.btn-danger { background: rgba(193, 39, 45, 0.12); color: var(--danger); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.toolbar input, .toolbar select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--panel-bg); color: var(--text); }
+
+.login-card .lang-select { background: var(--panel-bg); color: var(--text); border: 1px solid var(--border); align-self: flex-end; }
+
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 16px; }
+.form-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.form-field-wide { grid-column: 1 / -1; }
+.form-field label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.form-field input, .form-field select { padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--panel-bg); color: var(--text); }
+/* Date inputs otherwise stretch to fill the whole grid cell (the form-field
+   flex column stretches its children by default) - a plain calendar field
+   only needs enough room for its text + picker icon, not the full column
+   width, so cap it to a sensible size instead. */
+.form-field input[type="date"] { max-width: 170px; }
+/* Delivery Note top row (Date / Vehicle Number / Vehicle Photo / Receiver
+   Photo / Payment Status / Payment Mode): forces every field's box to the
+   same fixed size, overriding the input[type=date] max-width cap above which
+   otherwise left the Date field looking squeezed compared to its siblings.
+   Declared after that cap, and with !important, so it wins regardless of
+   selector specificity or source order - both of which have silently lost
+   to that 170px rule before. A fixed min-height on .form-field (rather than
+   just on the input) also reserves room for a hint/error line, so a message
+   like "Vehicle number is required." showing under only one box doesn't
+   push that one box's top edge out of line with its siblings. */
+.dn-top-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 16px;
+  align-items: start;
+}
+.dn-top-grid .form-field {
+  min-height: 78px;
+}
+.dn-top-grid .form-field label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.dn-top-grid .form-field input,
+.dn-top-grid .form-field select,
+.dn-top-grid .date-field,
+.dn-top-grid .btn-photo-capture {
+  width: 100%;
+  max-width: 100% !important;
+  box-sizing: border-box;
+  height: 40px;
+  font-size: 13px;
+}
+/* .date-field is a wrapper div (see DateField.jsx), not the input itself -
+   the rule above sizes the wrapper, this one makes the native input inside
+   it actually fill that same 40px box rather than keeping its own smaller
+   intrinsic height, so its computed height also reports 40px like every
+   other box in this row. */
+.dn-top-grid .date-field-input {
+  height: 100%;
+  box-sizing: border-box;
+}
+.dn-top-grid .field-hint {
+  display: block;
+  min-height: 16px;
+  font-size: 11px;
+  margin-top: 4px;
+}
+@media (max-width: 860px) {
+  .dn-top-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 520px) {
+  .dn-top-grid { grid-template-columns: 1fr; }
+}
+/* DateField (frontend/src/components/common/DateField.jsx): a real span
+   overlay, not a CSS ::before trick - ::before on a native <input> renders
+   on top of the input's own internal rendering instead of replacing it,
+   which is what caused the typed date and the "DD/MM/YYYY" text to show
+   overlapping/garbled at once. The span is removed from the DOM outright
+   (via the `!value` check in DateField.jsx) the instant a value exists, so
+   there is never a moment where both are painted together. */
+.date-field { position: relative; width: 100%; }
+.date-field-input { width: 100%; }
+.date-field-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 10px;
+  background: var(--panel-bg);
+  color: var(--text-muted);
+  font-size: 13px;
+  pointer-events: none; /* clicks pass straight through to the native input underneath, so the calendar still opens normally */
+  border-radius: 6px;
+}
+.field-hint { font-size: 11.5px; }
+.field-hint-error { color: var(--danger, #dc2626); }
+.vehicle-photo-preview { width: 140px; height: 100px; object-fit: cover; border: 1px solid var(--border); border-radius: 6px; }
+.vehicle-photo-block { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 4px 0 16px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.vehicle-photo-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Vehicle + Receiver preview thumbnails side by side, Vehicle always first
+   (left) - replaces the old full-width stacked blocks that left a large
+   empty gap beside every photo and pushed the rest of the form down the
+   page. Wraps to a single column automatically on narrow screens. */
+.photo-previews-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 4px 0 16px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.photo-preview-item { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; max-width: 200px; }
+.photo-preview-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.vehicle-photo-thumb-link { display: inline-block; }
+.vehicle-photo-thumb-link img { width: 90px; height: 64px; object-fit: cover; border: 1px solid var(--border); border-radius: 6px; }
+.btn-photo-capture { width: 100%; padding: 9px 10px; white-space: nowrap; text-align: center; justify-content: center; background: var(--panel-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-weight: 500; }
+.btn-photo-capture:hover { filter: brightness(0.97); }
+.form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.customer-block { border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border); padding: 16px 0; margin-bottom: 16px; }
+.toggle-row { display: flex; gap: 20px; margin-bottom: 12px; font-size: 13px; flex-wrap: wrap; }
+
+/* Fixed layout so each column's width comes from the <th> widths set in
+   DeliveryNoteForm.jsx instead of being re-measured from cell content (which
+   is what was pushing header text and column content out of alignment). */
+.add-custom-item-btn { margin-top: 14px; }
+
+/* Keep the Amount column (and its Grand Total) visible without needing to
+   scroll all the way right first - the items table has enough columns that
+   it commonly overflows the panel's own horizontal scroll area, and the
+   final total is exactly the number staff need to see without hunting for
+   it. Pinning the last column (Amount) to the right edge of the scrolling
+   panel means it's always on screen no matter how far the rest of the row
+   has been scrolled. */
+.items-table th:last-child,
+.items-table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  box-shadow: -6px 0 6px -6px rgba(0, 0, 0, 0.18);
+}
+.items-table thead th:last-child { background: var(--panel-bg-alt); }
+.items-table tbody td:last-child,
+.items-table tfoot td:last-child { background: var(--panel-bg); }
+@media (max-width: 480px) {
+  /* The stack-on-mobile layout below turns each row into its own block, so
+     the sticky-right trick (which only makes sense for a wide scrolling
+     table) is turned back off and the total simply reads inline instead. */
+  .items-table th:last-child,
+  .items-table td:last-child {
+    position: static;
+    box-shadow: none;
+  }
+}
+
+.items-table { table-layout: fixed; }
+/* Narrower cell padding than the default .data-table so the (already-tightened)
+   column widths above don't feel cramped, and the whole table has a much
+   better chance of fitting the screen without a horizontal scrollbar. */
+.items-table th, .items-table td { padding: 6px 6px; }
+.items-table input,
+.items-table select { width: 100%; border: 1px solid var(--border); border-radius: 5px; padding: 5px 6px; font-size: 12.5px; background: var(--panel-bg); color: var(--text); }
+/* Number inputs (Quantity/Rate/Per-Day Rate/Monthly Rate) otherwise lose the
+   last digit or two behind the browser's built-in up/down spinner - remove
+   it so the full value entered is always visible. */
+.items-table input[type="number"] { -moz-appearance: textfield; }
+.items-table input[type="number"]::-webkit-outer-spin-button,
+.items-table input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.item-name-cell { min-width: 160px; }
+/* Fixed (non-custom) Particulars rows show the item name as plain read-only
+   text instead of an input, so the full bilingual label is always visible on
+   page load with no click/focus needed (FR-05). */
+.item-name-display {
+  display: block;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.35;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+}
+.data-table th,
+.data-table td {
+  vertical-align: middle;
+}
+.amount-display { font-size: 13px; color: var(--text-muted); margin: 8px 0 14px; }
+
+/* ---- Mobile Particulars: one item per tab (Delivery Note form) ----
+   Phone-only replacement for the giant stacked-card table - a horizontally
+   swipeable strip of tabs (one per pad row / custom row) plus a single card
+   showing just the active row's fields. See the isMobile branch in
+   DeliveryNoteForm.jsx. */
+.particulars-mobile { margin-bottom: 16px; }
+.particulars-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 2px 2px 10px;
+  margin-bottom: 4px;
+}
+.particulars-tabs::-webkit-scrollbar { display: none; }
+.particulars-tab {
+  flex: 0 0 auto;
+  position: relative;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--panel-bg-alt);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.particulars-tab.active { background: var(--brand-red); border-color: var(--brand-red); color: #fff; }
+/* Small dot marks a tab whose row already has a quantity entered, so
+   progress across all the rows stays visible while flipping tabs. */
+.particulars-tab.filled::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.particulars-tab.active.filled::after { background: #fff; }
+.particulars-card {
+  background: var(--panel-bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+.particulars-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.particulars-card-no { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.particulars-card-amount { font-size: 15px; font-weight: 700; color: var(--brand-red); }
+.particulars-card-title { font-size: 15px; font-weight: 700; padding: 9px 0 3px; }
+.particulars-remove-btn { margin-top: 4px; width: 100%; justify-content: center; }
+.particulars-grand-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.particulars-grand-total span:last-child { color: var(--brand-red); }
+
+.alert { padding: 12px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; }
+.alert-error { background: rgba(193, 39, 45, 0.1); color: var(--danger); border: 1px solid rgba(193, 39, 45, 0.3); }
+
+.modal-overlay { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+.modal-box { background: var(--panel-bg); color: var(--text); border-radius: 10px; padding: 20px; width: 340px; max-width: 100%; }
+.modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+/* Item 8: the signature canvas (380px) is wider than the default modal
+   (340px), which pushed the Clear/Type/Cancel/Save Signature row outside the
+   box. Widening the box to fit the canvas, and letting the button row wrap
+   onto two lines on narrow screens, keeps every button inside the frame. */
+.signature-modal-box { width: 420px; box-sizing: border-box; }
+.signature-modal-box canvas { display: block; margin: 0 auto; }
+.signature-modal-box .modal-actions { justify-content: center; }
+@media (max-width: 440px) {
+  .signature-modal-box { width: 100%; padding: 16px; }
+  .signature-modal-box .modal-actions { justify-content: space-between; }
+  .signature-modal-box .modal-actions .btn { flex: 1 1 calc(50% - 5px); }
+}
+
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background-image: linear-gradient(
+      rgba(15, 23, 42, 0.45), 
+      rgba(15, 23, 42, 0.45)
+    ),
+    url('../logo/Steel_and_glass_building_frame_202607311753 - Edited.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.login-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #ffffff;
+  padding: 32px;
+  border-radius: 14px;
+  width: 320px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+}
+/* The language pill used to be `position: absolute; top: 10px; right: 10px`,
+   which lifted it out of the card's flex column and floated it over whatever
+   was underneath - the logo block on a normal window, and the heading/error
+   area once the card narrowed. It is a normal flex child now: still top-right
+   of the card, but it takes up its own space instead of sitting on top of
+   something else. */
+.login-lang-tabs {
+  align-self: flex-end;
+  flex: 0 0 auto;
+  margin-bottom: 2px;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.login-lang-tabs button {
+  min-height: 30px;
+  margin: 0;
+  padding: 0 10px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.login-lang-tabs button.active {
+  background: #ffffff;
+  color: var(--brand-red);
+}
+[data-theme='dark'] .login-card {
+  background: rgba(20, 24, 29, 0.32);
+}
+.login-brand-mark { width: 56px; height: 56px; color: var(--brand-red); align-self: center; margin: 4px 0; }
+.login-card h1 { color: #60a5fa; font-size: 20px; margin: 0; text-align: center; }
+.login-sub { text-align: center; color: rgba(255, 255, 255, 0.7); font-size: 12px; margin: 0 0 10px; }
+.login-card label { font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.8) !important; }
+.login-card input { padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-bg); color: var(--text); }
+.login-card button { margin-top: 10px; }
+
+.report-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.report-tabs .tab-link { background: var(--panel-bg-alt); color: var(--text); width: auto; }
+.report-tabs .tab-link.active { background: var(--brand-red); color: white; }
+
+.ledger-title { text-align: center; font-size: 16px; }
+
+/* ---- Tablet (768-1023px): DesktopShell's sidebar stays a normal static
+   column (this is NOT the phone breakpoint - phones under 768px never mount
+   DesktopShell at all, MobileShell below owns that range completely). Only
+   the content area's own spacing/grid density adapts here. ---- */
+@media (max-width: 1023px) {
+  .app-content { padding: 18px; }
+  .page-header { flex-direction: column; align-items: stretch; }
+  .form-grid { grid-template-columns: 1fr 1fr; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 860px) {
+  .app-content { padding: 16px; }
+  .form-grid { grid-template-columns: 1fr; }
+}
+
+/* ---- Intermediate breakpoint: between the 860px sidebar-drawer switch and
+   the 480px single-column collapse, phones in landscape and small tablets
+   land here - grids go to 2-up instead of jumping straight to 1-up. ---- */
+@media (max-width: 600px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .chart-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .login-card { padding: 22px; }
+
+  /* Touch targets: row-action buttons (Edit/Delete/Print) get a taller hit
+     area on phones instead of the compact desktop .btn-sm sizing. */
+  .row-actions .btn {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+}
+
+/* ---- Stacked card layout for wide data tables below ~480px ----
+   Opt-in via .stack-on-mobile (added to the Delivery Note items table,
+   Material Ledger, and Labour Site Sheet/Consolidated tables) rather than
+   every .data-table, since some lists (e.g. short 3-4 column ones) read
+   fine with plain horizontal scroll and don't need the row->card rewrite.
+   Each <td> supplies its column header via a data-label attribute, shown
+   as a pseudo-header above the value. */
+@media (max-width: 480px) {
+  .stack-on-mobile thead { display: none; }
+  .stack-on-mobile, .stack-on-mobile tbody, .stack-on-mobile tr, .stack-on-mobile td {
+    display: block;
+    width: 100%;
+  }
+  .stack-on-mobile tr {
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .stack-on-mobile td {
+    border-bottom: none;
+    padding: 6px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .stack-on-mobile td[data-label]::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    flex-shrink: 0;
+  }
+  .stack-on-mobile td input,
+  .stack-on-mobile td select {
+    width: auto;
+    max-width: 60%;
+  }
+  .stack-on-mobile tfoot { display: block; }
+  .stack-on-mobile tfoot tr { display: block; }
+  .stack-on-mobile tfoot td { display: flex; justify-content: space-between; }
+}
+
+/* ---- Floating AI assistant widget (bottom-right) ---- */
+.chat-widget { position: fixed; right: 20px; bottom: 20px; z-index: 70; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+.chat-fab {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--brand-red);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.chat-fab:hover { transform: scale(1.06); background: #a41f24; }
+.chat-fab-close { font-size: 26px; line-height: 1; }
+.chat-panel {
+  width: 320px;
+  max-width: calc(100vw - 40px);
+  height: 420px;
+  max-height: calc(100vh - 120px);
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chat-panel-header {
+  background: var(--sidebar-bg);
+  color: white;
+  padding: 12px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.chat-close-btn { background: none; border: none; color: white; font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 6px; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.chat-bubble { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
+.chat-bubble-user { align-self: flex-end; background: var(--brand-red); color: white; border-bottom-right-radius: 3px; }
+.chat-bubble-assistant { align-self: flex-start; background: var(--panel-bg-alt); color: var(--text); border-bottom-left-radius: 3px; }
+.chat-bubble-typing { font-weight: 700; letter-spacing: 2px; }
+.chat-error { margin: 0 12px 10px; }
+.chat-input-row { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
+.chat-input-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--panel-bg); color: var(--text); }
+.chat-header-actions { display: flex; align-items: center; gap: 4px; }
+.chat-icon-btn { background: none; border: none; color: white; font-size: 15px; line-height: 1; cursor: pointer; padding: 2px 4px; opacity: 0.7; }
+.chat-icon-btn-active, .chat-icon-btn:hover { opacity: 1; }
+.chat-bubble { position: relative; }
+.chat-bubble-speak-btn { background: none; border: none; cursor: pointer; font-size: 11px; opacity: 0.55; margin-left: 6px; padding: 0; vertical-align: middle; }
+.chat-bubble-speak-btn:hover { opacity: 1; }
+.chat-mic-btn {
+  border: 1px solid var(--border);
+  background: var(--panel-bg-alt);
+  border-radius: 6px;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 6px 10px;
+  flex-shrink: 0;
+}
+.chat-mic-btn-listening { background: var(--brand-red); border-color: var(--brand-red); animation: chat-mic-pulse 1.2s ease-in-out infinite; }
+@keyframes chat-mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196, 34, 41, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(196, 34, 41, 0); }
+}
+
+@media (max-width: 480px) {
+  .chat-widget { right: 12px; bottom: 12px; }
+  .chat-panel { width: calc(100vw - 24px); }
+}
+
+/* On the mobile shell the FAB would otherwise sit right on top of the fixed
+   bottom nav bar (~64px tall + safe area) - lifted here to float clearly
+   above it with a visible gap, instead of the two overlapping. */
+.mobile-shell .chat-widget {
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 14px);
+  right: 14px;
+  transition: bottom 0.25s ease;
+}
+/* When the bottom nav itself is hidden (scrolled down), the FAB can drop
+   down closer to the screen edge since there's nothing left to clear. */
+.mobile-shell:has(.m-bottom-nav-hidden) .chat-widget {
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+}
+
+
+/* ============================================================
+   CLIENT CHANGE BATCH - 20 Aug 2026
+   Items C/D/E/F/M/N/R/W/Y. Everything below uses the theme
+   tokens at the top of this file, never a literal colour, so
+   the dark toggle flips it along with the rest of the app.
+   ============================================================ */
+
+/* --- Item M: the real cause of the black-on-black panels ---
+   Browsers render native form controls (and any element that does not inherit
+   colour, e.g. a <button> with `background: none`) using the OS colour scheme
+   unless the page declares its own. That is why the Advance/Balance cell went
+   to a black block in dark mode while everything around it flipped correctly.
+   Declaring color-scheme per theme makes every native control - selects,
+   scrollbars, date popups, autofill - follow the app's theme. */
+:root { color-scheme: light; }
+[data-theme='dark'] { color-scheme: dark; }
+
+/* Buttons do not inherit colour by default; this is the Advance/Balance
+   "received / due" control from the billing list. */
+.badge-btn { color: inherit; background: none; border: none; cursor: pointer; padding: 0; }
+.badge-btn:hover { text-decoration: underline; }
+
+/* --- Item E + D: every date field is a real, obviously clickable box --- */
+.date-field { position: relative; width: 100%; }
+.date-field-box {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px;
+  /* Item 3 (2026-09-15): every date box across the app already uses this
+     one DateField component, but the default --border color reads very
+     faint (especially empty "From/To" filter fields with no value yet) -
+     a slightly stronger, fixed border keeps every date box reading the
+     same clearly-boxed way as the filled-in Billing Date field. */
+  border: 1.5px solid var(--date-field-border, #9aa3ae);
+  border-radius: 6px;
+  background: var(--panel-bg);
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+[data-theme='dark'] .date-field-box { border-color: var(--date-field-border-dark, #4a5464); }
+.date-field-box:hover:not(:disabled) { border-color: var(--brand-red); }
+.date-field-box:focus-visible { outline: 2px solid var(--brand-red); outline-offset: 1px; }
+.date-field-box:disabled { opacity: 0.6; cursor: not-allowed; }
+.date-field-overlay { color: var(--text-muted); }
+.date-field-value { color: var(--text); }
+.date-field-icon { color: var(--text-muted); flex-shrink: 0; }
+/* Item 1 (2026-09-15): the calendar now animates open (fade + scale + rise)
+   instead of just appearing instantly, similar to the reference picker's
+   own open transition. */
+@keyframes dpPopIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.date-field-pop { position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; }
+.date-field-pop .rsa-datepicker { animation: dpPopIn 0.16s ease-out both; transform-origin: top left; }
+.items-table .date-field-pop .rsa-datepicker { transform-origin: top right; }
+/* Keep the popover on screen when the field sits near the right edge. */
+.items-table .date-field-pop, td .date-field-pop { left: auto; right: 0; }
+
+/* --- Item 14: inline "New Site" row on Site Sheet --- */
+.new-site-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  flex-wrap: wrap;
+}
+/* Item 6 (2026-09-15): this input used to stretch (flex: 1) across the full
+   panel width, which looked oversized next to the "Add Site"/"Cancel"
+   buttons beside it - capped to a normal text-field width instead. */
+.new-site-row input { flex: 0 1 260px; min-width: 180px; }
+
+/* --- Item 9/10: multi-row Add Worker form --- */
+.worker-add-row {
+  position: relative;
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed var(--border);
+}
+.worker-add-row:last-of-type { border-bottom: none; }
+/* Item 5 (2026-09-15): Remove used to sit in its own full grid column
+   (justify-content: flex-end inside a >=200px track), which left a big
+   empty gap to its left within that column. It's now a small pill pinned
+   to the row's own top-right corner instead of taking up a whole field's
+   worth of grid space. */
+.worker-row-remove-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: 1px solid var(--danger, #dc2626);
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--danger, #dc2626);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.worker-row-remove-btn:hover { background: rgba(220, 38, 38, 0.16); }
+
+/* --- Item 11: Daily Wages calculation breakdown panel --- */
+.wage-breakdown-panel {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-bg-alt);
+}
+.wage-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 13.5px;
+  border-bottom: 1px dashed var(--border);
+}
+.wage-breakdown-row:last-child { border-bottom: none; }
+.wage-breakdown-total { font-weight: 600; }
+.wage-breakdown-balance { font-weight: 700; font-size: 14.5px; padding-top: 8px; }
+
+/* --- Search box, used at the top of every list/tab --- */
+.search-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-bg-alt);
+  padding: 0 10px;
+  height: 38px;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 0 14px;
+}
+.search-box-icon { color: var(--text-muted); flex-shrink: 0; }
+.search-box-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13.5px;
+  color: var(--text);
+  height: 100%;
+}
+.search-box-input::-webkit-search-cancel-button { display: none; }
+.search-box-clear {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+.search-box-clear:hover { color: var(--brand-red); }
+.panel-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  /* Item 7 (2026-09-15): this row (title + search box) used to sit flush
+     against the table right below it - added breathing room so the search
+     box reads as its own row instead of touching the table border. */
+  margin-bottom: 14px;
+}
+.panel-header-row .search-box { margin-bottom: 0; }
+@media (max-width: 560px) {
+  .search-box { max-width: 100%; }
+}
+
+/* --- Item D: the shared RSA calendar (+ time picker) --- */
+.rsa-datepicker {
+  width: 300px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+  color: var(--text);
+  user-select: none;
+}
+.rsa-datepicker-v2.has-time { width: 320px; max-width: calc(100vw - 24px); }
+
+/* --- Item 1 (2026-09-15): compact Hour : Minute : Second + AM/PM stepper.
+   It sits directly under the calendar instead of beside it, so the whole
+   picker reads as one clean stacked card instead of a wide two-pane layout. --- */
+.rsa-dp-timepane-v2 {
+  border-left: none;
+  border-top: 1px solid var(--border);
+  padding-left: 0;
+  padding-top: 12px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+}
+.rsa-dp-timepane-title { font-weight: 600; font-size: 13px; margin-bottom: 10px; }
+.rsa-dp-timestepper {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.rsa-dp-time-field { display: flex; flex-direction: column; gap: 3px; width: 52px; }
+.rsa-dp-time-field label { font-size: 10px; color: var(--text-muted); text-align: center; }
+.rsa-dp-time-input {
+  width: 100%;
+  padding: 7px 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg-alt);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+.rsa-dp-time-input:focus-visible { outline: 2px solid var(--brand-red); outline-offset: 1px; }
+.rsa-dp-time-colon { font-weight: 700; font-size: 16px; padding-bottom: 9px; color: var(--text-muted); }
+.rsa-dp-ampm { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+.rsa-dp-ampm-btn {
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--panel-bg-alt);
+  color: var(--text);
+  cursor: pointer;
+  border: none;
+}
+.rsa-dp-ampm-btn.is-selected { background: var(--brand-red); color: #fff; }
+.rsa-dp-now-btn { margin-left: auto; padding: 7px 10px; }
+@media (max-width: 360px) {
+  .rsa-dp-timestepper { justify-content: center; }
+  .rsa-dp-now-btn { margin-left: 0; width: 100%; }
+}
+
+.rsa-dp-footer {
+  display: flex;
+  align-items: center;
+  /* Item 4 (2026-09-15): used to be space-between against the now-removed
+     "Selected Date & Time" summary text on the left; with only the
+     Cancel/Done buttons left in this row, push them to the right. */
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.rsa-dp-footer-summary { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rsa-dp-footer-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: rgba(34, 197, 94, 0.12);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+}
+.rsa-dp-footer-label { font-size: 11px; color: var(--text-muted); }
+.rsa-dp-footer-value { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rsa-dp-footer .rsa-dp-commit { display: flex; gap: 8px; }
+.rsa-dp-footer .rsa-dp-btn-apply { background: #16a34a; }
+.rsa-dp-footer .rsa-dp-btn-apply:disabled { opacity: 0.5; cursor: not-allowed; }
+@media (max-width: 560px) {
+  .rsa-datepicker-v2.has-time { width: min(300px, calc(100vw - 24px)); }
+}
+.rsa-dp-head { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
+.rsa-dp-title { flex: 1; text-align: center; font-weight: 600; font-size: 14px; }
+.rsa-dp-nav {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-bg-alt);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.rsa-dp-nav:hover { border-color: var(--brand-red); color: var(--brand-red); }
+.rsa-dp-weekdays, .rsa-dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.rsa-dp-weekdays span { text-align: center; font-size: 11px; color: var(--text-muted); padding: 4px 0; }
+.rsa-dp-day {
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.rsa-dp-day:hover:not(:disabled) { background: var(--panel-bg-alt); }
+.rsa-dp-day.is-outside { color: var(--text-muted); opacity: 0.55; }
+.rsa-dp-day.is-today { box-shadow: inset 0 0 0 1px var(--brand-red); }
+.rsa-dp-day.is-selected { background: var(--brand-red); color: #fff; font-weight: 600; }
+.rsa-dp-day:disabled { opacity: 0.3; cursor: not-allowed; }
+.rsa-dp-shortcuts { display: flex; gap: 8px; margin-top: 10px; }
+.rsa-dp-actions {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.rsa-dp-spacer { flex: 1; }
+.rsa-dp-btn { padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; border: 1px solid transparent; }
+.rsa-dp-btn-ghost { background: none; border-color: transparent; color: var(--text-muted); }
+.rsa-dp-btn-ghost:hover { color: var(--brand-red); }
+.rsa-dp-btn-cancel { background: var(--panel-bg); border-color: var(--border); color: var(--text); }
+.rsa-dp-btn-apply { background: var(--brand-red); color: #fff; }
+.rsa-dp-btn:focus-visible { outline: 2px solid var(--brand-red); outline-offset: 1px; }
+
+/* --- Items F + R: the designed dropdown, replacing native <select> --- */
+.rsa-select { position: relative; width: 100%; }
+.rsa-select-trigger {
+  width: 100%;
+  min-height: 38px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-bg);
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.rsa-select-trigger:hover:not(:disabled) { border-color: var(--brand-red); }
+.rsa-select-trigger:focus-visible { outline: 2px solid var(--brand-red); outline-offset: 1px; }
+.rsa-select-trigger[aria-expanded='true'] { border-color: var(--brand-red); }
+.rsa-select-placeholder { color: var(--text-muted); }
+.rsa-select-caret { color: var(--text-muted); transition: transform 0.12s ease; flex-shrink: 0; }
+.rsa-select-trigger[aria-expanded='true'] .rsa-select-caret { transform: rotate(180deg); }
+.rsa-select-menu {
+  position: absolute; z-index: 60; top: calc(100% + 6px); left: 0;
+  /* Item 4 (2026-09-15): a narrow table cell (e.g. the Variant column) used
+     to force this menu down to the cell's own width via min-width: 100%,
+     which clipped longer option text like 1'6" x 1'0". It now sizes to
+     whichever is wider - the trigger or its longest option - within a
+     sensible cap, so the full label is always readable. */
+  min-width: 100%;
+  width: max-content;
+  max-width: min(260px, calc(100vw - 24px));
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.rsa-select-search {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-bg-alt);
+  color: var(--text);
+  font-size: 13px;
+}
+.rsa-select-option {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.rsa-select-option:hover, .rsa-select-option.is-active { background: var(--panel-bg-alt); }
+.rsa-select-option.is-selected { font-weight: 600; }
+.rsa-select-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
+.rsa-select-option[data-tone='positive'] .rsa-select-dot { background: var(--green); }
+.rsa-select-option[data-tone='positive'].is-selected { background: rgba(27, 138, 76, 0.12); color: var(--green); }
+.rsa-select-option[data-tone='negative'] .rsa-select-dot { background: #e8590c; }
+.rsa-select-option[data-tone='negative'].is-selected { background: rgba(232, 89, 12, 0.12); color: #e8590c; }
+.rsa-select-option[data-tone='warning'] .rsa-select-dot { background: var(--amber); }
+.rsa-select-empty { padding: 10px 12px; font-size: 12.5px; color: var(--text-muted); }
+.rsa-select-divider { height: 1px; margin: 6px 4px; background: var(--border); }
+.rsa-select-clear {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px;
+  border: none; border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px; text-align: left; cursor: pointer;
+}
+.rsa-select-clear:hover { color: var(--brand-red); background: var(--panel-bg-alt); }
+
+/* --- Item W: the Reports date field was stretching the whole card --- */
+.report-run-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.report-run-row .date-field, .report-run-row .rsa-select { width: 200px; max-width: 100%; }
+.report-run-row input[type='number'] { width: 110px; }
+@media (max-width: 767px) {
+  .report-run-row { flex-direction: column; align-items: stretch; }
+  .report-run-row .date-field, .report-run-row .rsa-select, .report-run-row input[type='number'] { width: 100%; }
+}
+
+/* --- Item N: material stock actions become equal, tappable tabs --- */
+.rsa-tabbar { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Item 9 (2026-09-15): the New Material Entry sub-tabs (New Entry / Opening
+   Balance / Closing Balance) - a smaller, secondary row under the main tabs. */
+/* Item 8 (2026-09-15): this sub-tab row (New Entry/Opening Balance/Closing
+   Balance) used to sit flush against the main tab row right above it. */
+.rsa-tabbar-sub { margin-top: 10px; margin-bottom: 14px; }
+.rsa-tabbar-sub .rsa-tab { flex: 0 1 auto; min-height: 38px; padding: 7px 14px; font-size: 12.5px; }
+.rsa-tabbar .rsa-tab {
+  flex: 1 1 160px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+}
+.rsa-tabbar .rsa-tab:hover { border-color: var(--brand-red); color: var(--brand-red); }
+.rsa-tabbar .rsa-tab.is-active { background: var(--brand-red); border-color: var(--brand-red); color: #fff; }
+.rsa-tabbar .rsa-tab:focus-visible { outline: 2px solid var(--brand-red); outline-offset: 2px; }
+
+/* --- Item 2 (2026-09-15): the old fixed-height shell trapped every page's
+   content inside a short inner scrollbar, so opening any tab only showed a
+   sliver of it until the user found and dragged that inner scrollbar. Pages
+   now grow to their natural height and the browser's own page scrollbar
+   handles the rest - only the sidebar stays pinned in view (desktop web
+   only) since its own list is always short. --- */
+@media (min-width: 1024px) {
+  /* Items 1 & 6 (2026-09-15): align-items: flex-start let the sidebar shrink
+     to its own (short) content height instead of stretching the full column,
+     so the dark sidebar stopped partway down the screen with plain page
+     background below it. Stretching (the flex default) keeps it full-length
+     again while position: sticky still pins it as the page scrolls. */
+  .app-body { min-height: 100vh; }
+  .app-sidebar { max-height: 100vh; overflow-y: auto; position: sticky; top: 0; }
+  .app-content { min-height: 100vh; }
+}
+
+/* --- Accessibility sweep: visible focus everywhere, comfortable targets --- */
+.btn:focus-visible, button:focus-visible, a:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--brand-red);
+  outline-offset: 1px;
+}
+
+/* Item 5 (2026-09-15): the accessibility sweep above puts a red focus
+   outline on every input, which on the search boxes (Workers, Daily
+   Entries, Clients, etc.) showed as a heavy blue-ish ring around the whole
+   pill - the search box already has its own border/background styling, so
+   it should just look normal (no ring) when focused, matching every other
+   search field in the app. */
+.search-box-input:focus, .search-box-input:focus-visible {
+  outline: none;
+}
+
+
+/* --- Item T: every tab row in the app gets the same comfortable target size
+   and the same active treatment, so Reports / Labour / Billing / Material
+   Stock all read as one system instead of four different tab styles. --- */
+.report-tabs .tab-link,
+.labour-tabs .tab-link,
+.particulars-tab {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  font-size: 13.5px;
+}
+.report-tabs .tab-link:focus-visible,
+.labour-tabs .tab-link:focus-visible,
+.particulars-tab:focus-visible {
+  outline: 2px solid var(--brand-red);
+  outline-offset: 2px;
+}
+@media (max-width: 767px) {
+  .report-tabs, .labour-tabs, .rsa-tabbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .report-tabs::-webkit-scrollbar, .labour-tabs::-webkit-scrollbar, .rsa-tabbar::-webkit-scrollbar { display: none; }
+  .rsa-tabbar .rsa-tab { flex: 0 0 auto; }
+}
+
+
+/* ---- Fix 1: the calendar's Apply button was running outside the panel ----
+   Four buttons on one 300px row did not fit, so Apply overflowed the right
+   edge. The footer is now two rows: the two low-risk shortcuts on top, the
+   commit pair underneath and right-aligned. Applies to every dashboard,
+   Admin and Manager, because they all share this one component. */
+.rsa-datepicker { width: 316px; max-width: calc(100vw - 24px); }
+.rsa-dp-actions {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.rsa-dp-actions .rsa-dp-shortcuts { display: flex; gap: 4px; }
+.rsa-dp-actions .rsa-dp-commit { display: flex; gap: 8px; justify-content: flex-end; }
+.rsa-dp-spacer { display: none; }
+.rsa-dp-btn { padding: 8px 12px; white-space: nowrap; }
+.rsa-dp-btn-apply, .rsa-dp-btn-cancel { min-width: 78px; }
+/* Never let the popover hang off the right of the viewport. */
+.date-field-pop { max-width: calc(100vw - 24px); }
+@media (max-width: 400px) {
+  .rsa-dp-actions { grid-template-columns: 1fr; justify-content: stretch; }
+  .rsa-dp-actions .rsa-dp-commit { justify-content: stretch; }
+  .rsa-dp-actions .rsa-dp-commit .rsa-dp-btn { flex: 1; }
+}
+
+/* ---- Fix 2: tidy up the remaining ragged rows ----
+   Labels, inputs and helper text now share one baseline grid instead of each
+   form-field setting its own spacing. */
+.form-grid { align-items: start; }
+.form-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.form-field > label { font-size: 12px; color: var(--text-muted); line-height: 1.3; }
+.form-field input, .form-field .rsa-select-trigger, .form-field .date-field-box { min-height: 38px; }
+.form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.toolbar { align-items: center; gap: 10px; flex-wrap: wrap; }
+.page-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.row-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.data-table td, .data-table th { vertical-align: middle; }
+/* Items 9 & 10 (2026-09-15): this used to also force-right-align every
+   table's LAST column via td:last-child, regardless of what was in it - so
+   a Status badge or an Actions button ended up right-aligned under a
+   left-aligned header whenever it happened to be the last column (e.g.
+   Stock Balances' Status column). Right-align is now opt-in via .amount-cell
+   only; every money column that used to rely on being "last" now carries
+   that class explicitly instead. */
+.data-table .amount-cell { text-align: right; }
+.data-table th { white-space: nowrap; }
+
+/* ---- Fix 3: password reveal ---- */
+.password-field { position: relative; display: flex; align-items: center; }
+.password-field input { width: 100%; padding-right: 40px; }
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.password-toggle:hover { color: var(--brand-red); }
+.login-card .password-toggle { color: rgba(255, 255, 255, 0.85); }
+.login-card .password-toggle:hover { color: #fff; }
+.login-hint { font-size: 11.5px; opacity: 0.85; margin: 2px 0 0; }
+
+
+/* ============================================================
+   CLIENT FIXES - round 3
+   ============================================================ */
+
+/* --- The "box inside the circle" on the language pill ---
+   The accessibility pass added a square focus ring to every button. Inside a
+   999px-radius segmented control that draws a rectangle inside the circle,
+   which is what shows up after the option is tapped. Give the segments the
+   pill's own radius and tuck the ring inside them. */
+.login-lang-tabs button,
+.lang-toggle-option {
+  border-radius: 999px;
+}
+.login-lang-tabs button:focus-visible,
+.lang-toggle-option:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+  border-radius: 999px;
+}
+
+/* --- Sidebar / header language toggle (replaces the old dropdown) --- */
+.lang-toggle {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.lang-toggle-option {
+  min-height: 28px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  color: var(--sidebar-text, #cbd2d9);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lang-toggle-option.is-active { background: #fff; color: var(--brand-red); }
+.m-sheet-controls .lang-toggle { flex: 1; justify-content: center; border-color: var(--border); background: var(--panel-bg-alt); }
+.m-sheet-controls .lang-toggle-option { color: var(--text); }
+.m-sheet-controls .lang-toggle-option.is-active { background: var(--brand-red); color: #fff; }
+
+/* --- Tab row: links must look identical to buttons ---
+   "Stock Balances" is a <Link>, so it inherited the browser's underline and
+   the anchor font, and sat off-centre because an inline anchor does not
+   centre its own text the way a button does. */
+.rsa-tabbar .rsa-tab,
+.rsa-tabbar a.rsa-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.rsa-tabbar a.rsa-tab:hover,
+.rsa-tabbar a.rsa-tab:focus { text-decoration: none; }
+
+
+/* ============================================================
+   CLIENT FIXES - round 4
+   ============================================================ */
+
+/* --- Login language switch: a proper segmented control ---
+   The active white segment was sitting flush against the parent's rounded
+   border, so the two radii fought each other and the pill looked broken.
+   The track now has its own padding, both segments are the same width, and
+   the active one is a pill floating inside the track. */
+.login-lang-tabs {
+  align-self: flex-end;
+  flex: 0 0 auto;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.18);
+  overflow: visible;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.login-lang-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  min-height: 28px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+.login-lang-tabs button.active {
+  background: #ffffff;
+  color: var(--brand-red);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+/* --- Sign In label centred in its button --- */
+.login-card .btn,
+.login-card button[type='submit'] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  min-height: 42px;
+  font-weight: 600;
+}
+
+
+/* ============================================================
+   Language switch - final geometry fix
+   ------------------------------------------------------------
+   The track was a flex row, so each half was sized to its own text.
+   "English" is noticeably wider than "தமிழ்", which made the active
+   white pill wider than the inactive half and the whole control read
+   as lopsided. A 2-column grid gives both halves exactly the same
+   width whatever the label says, so the moving pill always fills its
+   half precisely.
+   ============================================================ */
+.login-lang-tabs,
+.lang-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+  gap: 0;
+  padding: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  width: max-content;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.login-lang-tabs button,
+.lang-toggle-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 84px;
+  min-height: 30px;
+  padding: 0 12px;
+  margin: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.login-lang-tabs { align-self: flex-end; border: 1px solid rgba(255, 255, 255, 0.45); background: rgba(255, 255, 255, 0.22); }
+.login-lang-tabs button { color: rgba(255, 255, 255, 0.92); }
+.login-lang-tabs button.active { background: #ffffff; color: var(--brand-red); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18); }
+.lang-toggle { border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(255, 255, 255, 0.08); }
+.lang-toggle-option { color: var(--sidebar-text, #cbd2d9); }
+.lang-toggle-option.is-active { background: #fff; color: var(--brand-red); }
